@@ -1,0 +1,64 @@
+2025-06-08 22:47:39,609 - InstagramBot - INFO - Переходимо на сторінку входу Instagram
+2025-06-08 22:47:56,087 - InstagramBot - INFO - Немає вікна з cookie або помилка: Message: 
+Stacktrace:
+	GetHandleVerifier [0x0x7ff6d55afea5+79173]
+	GetHandleVerifier [0x0x7ff6d55aff00+79264]
+	(No symbol) [0x0x7ff6d5369e5a]
+	(No symbol) [0x0x7ff6d53c0586]
+	(No symbol) [0x0x7ff6d53c083c]
+	(No symbol) [0x0x7ff6d5414247]
+	(No symbol) [0x0x7ff6d53e89af]
+	(No symbol) [0x0x7ff6d541100d]
+	(No symbol) [0x0x7ff6d53e8743]
+	(No symbol) [0x0x7ff6d53b14c1]
+	(No symbol) [0x0x7ff6d53b2253]
+	GetHandleVerifier [0x0x7ff6d587a2dd+3004797]
+	GetHandleVerifier [0x0x7ff6d587472d+2981325]
+	GetHandleVerifier [0x0x7ff6d5893380+3107360]
+	GetHandleVerifier [0x0x7ff6d55caa2e+188622]
+	GetHandleVerifier [0x0x7ff6d55d22bf+219487]
+	GetHandleVerifier [0x0x7ff6d55b8df4+115860]
+	GetHandleVerifier [0x0x7ff6d55b8fa9+116297]
+	GetHandleVerifier [0x0x7ff6d559f558+11256]
+	BaseThreadInitThunk [0x0x7ffab1947374+20]
+	RtlUserThreadStart [0x0x7ffab293cc91+33]
+
+2025-06-08 22:47:56,274 - InstagramBot - INFO - Введено логін: mashmanuk
+2025-06-08 22:47:56,406 - InstagramBot - INFO - Введено пароль
+2025-06-08 22:47:56,526 - InstagramBot - INFO - Натиснуто кнопку входу
+2025-06-08 22:48:06,562 - InstagramBot - INFO - Успішна авторизація в Instagram
+2025-06-08 22:48:06,562 - InstagramBot - INFO - Переходимо на сторінку: https://www.instagram.com/karate_okinawa_zhydychyn
+2025-06-08 22:48:12,646 - InstagramBot - INFO - Отримую сторінку instagram URL: https://www.instagram.com/karate_okinawa_zhydychyn
+2025-06-08 22:48:15,875 - InstagramBot - INFO - Сторінка збережена у файл: instagram_page_20250608_224815.html
+2025-06-08 22:53:39,390 - InstagramBot - INFO - Переходимо на сторінку входу Instagram
+2025-06-08 22:53:55,872 - InstagramBot - INFO - Немає вікна з cookie або помилка: Message: 
+Stacktrace:
+	GetHandleVerifier [0x0x7ff6d55afea5+79173]
+	GetHandleVerifier [0x0x7ff6d55aff00+79264]
+	(No symbol) [0x0x7ff6d5369e5a]
+	(No symbol) [0x0x7ff6d53c0586]
+	(No symbol) [0x0x7ff6d53c083c]
+	(No symbol) [0x0x7ff6d5414247]
+	(No symbol) [0x0x7ff6d53e89af]
+	(No symbol) [0x0x7ff6d541100d]
+	(No symbol) [0x0x7ff6d53e8743]
+	(No symbol) [0x0x7ff6d53b14c1]
+	(No symbol) [0x0x7ff6d53b2253]
+	GetHandleVerifier [0x0x7ff6d587a2dd+3004797]
+	GetHandleVerifier [0x0x7ff6d587472d+2981325]
+	GetHandleVerifier [0x0x7ff6d5893380+3107360]
+	GetHandleVerifier [0x0x7ff6d55caa2e+188622]
+	GetHandleVerifier [0x0x7ff6d55d22bf+219487]
+	GetHandleVerifier [0x0x7ff6d55b8df4+115860]
+	GetHandleVerifier [0x0x7ff6d55b8fa9+116297]
+	GetHandleVerifier [0x0x7ff6d559f558+11256]
+	BaseThreadInitThunk [0x0x7ffab1947374+20]
+	RtlUserThreadStart [0x0x7ffab293cc91+33]
+
+2025-06-08 22:53:56,084 - InstagramBot - INFO - Введено логін: mashmanuk
+2025-06-08 22:53:56,215 - InstagramBot - INFO - Введено пароль
+2025-06-08 22:53:56,336 - InstagramBot - INFO - Натиснуто кнопку входу
+2025-06-08 22:54:06,384 - InstagramBot - INFO - Успішна авторизація в Instagram
+2025-06-08 22:54:06,385 - InstagramBot - INFO - Переходимо на сторінку: https://www.instagram.com/karate_okinawa_zhydychyn
+2025-06-08 22:54:12,392 - InstagramBot - INFO - Отримую сторінку instagram URL: https://www.instagram.com/karate_okinawa_zhydychyn
+2025-06-08 22:54:15,648 - InstagramBot - INFO - Сторінка збережена у файл: instagram_page_20250608_225415.html
