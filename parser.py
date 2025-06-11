@@ -20,6 +20,9 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 # Завантажуємо змінні середовища з .env файлу
 load_dotenv()
 
+# Імпортуємо конфігурацію акаунтів
+from accounts_config import get_account_config, get_all_accounts
+
 # Налаштування логування
 logging.basicConfig(
     level=logging.INFO,
@@ -31,20 +34,43 @@ logging.basicConfig(
 )
 logger = logging.getLogger('InstagramParser')
 
-# Створюємо директорію для зображень, якщо вона не існує
-IMAGE_DIR = Path('static/img/instagram')
-IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+# Створюємо базову директорію для зображень
+BASE_IMAGE_DIR = Path('static/img')
+BASE_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-def download_and_save_image(url, post_type, post_id=None):
+# Створюємо директорії для зображень для кожного акаунту
+def ensure_account_directories():
+    """Створює директорії для зображень для кожного акаунту"""
+    for account in get_all_accounts():
+        img_dir = BASE_IMAGE_DIR / account["images_folder"]
+        img_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Створено директорію для зображень акаунту {account['username']}: {img_dir}")
+
+# Створюємо директорії при запуску
+ensure_account_directories()
+
+def download_and_save_image(url, post_type, post_id=None, account_username="default"):
     """
     Завантажує зображення за URL та зберігає його локально
-    Повертає шлях до збереженого зображення або None у разі помилки
+    
+    Args:
+        url (str): URL зображення для завантаження
+        post_type (str): Тип посту (post, reel)
+        post_id (str, optional): Ідентифікатор посту. Defaults to None.
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+        
+    Returns:
+        str: Шлях до збереженого зображення або None у разі помилки
     """
     if not url:
         logger.warning("Порожній URL для завантаження зображення")
         return None
         
     try:
+        # Отримуємо конфігурацію акаунту
+        account_config = get_account_config(account_username)
+        images_folder = account_config["images_folder"]
+        
         # Генеруємо унікальне ім'я файлу на основі URL
         url_hash = hashlib.md5(url.encode()).hexdigest()
         file_ext = '.jpg'  # За замовчуванням
@@ -62,8 +88,9 @@ def download_and_save_image(url, post_type, post_id=None):
             filename = f"{post_type}_{post_id}_{url_hash[:8]}{file_ext}"
         else:
             filename = f"{post_type}_{url_hash}{file_ext}"
-            
-        local_path = IMAGE_DIR / filename
+        
+        # Використовуємо папку для зображень конкретного акаунту
+        local_path = BASE_IMAGE_DIR / images_folder / filename
         
         # Перевіряємо, чи файл вже існує
         if local_path.exists():
@@ -71,7 +98,7 @@ def download_and_save_image(url, post_type, post_id=None):
             return str(local_path).replace('\\', '/')
             
         # Завантажуємо зображення
-        logger.info(f"Завантажуємо зображення з URL: {url[:50]}...")
+        logger.info(f"Завантажуємо зображення з URL: {url[:50]}... для акаунту {account_username}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()  # Перевіряємо на помилки HTTP
         
@@ -87,9 +114,16 @@ def download_and_save_image(url, post_type, post_id=None):
         return None
 
 # Функція для створення бази даних
-def init_db():
-    """Створює базу даних, якщо вона не існує"""
-    conn = sqlite3.connect('instagram_data.db')
+def init_db(database_name='instagram_data.db'):
+    """Створює базу даних, якщо вона не існує
+    
+    Args:
+        database_name (str): Назва файлу бази даних
+    
+    Returns:
+        sqlite3.Connection: З'єднання з базою даних
+    """
+    conn = sqlite3.connect(database_name)
     cursor = conn.cursor()
     
     # Створюємо таблицю для постів
@@ -103,12 +137,13 @@ def init_db():
         username TEXT,
         is_video INTEGER,
         parsed_date TEXT,
-        local_path TEXT
+        local_path TEXT,
+        account TEXT
     )
     ''')
     
     conn.commit()
-    logger.info("Таблицю постів створено успішно")
+    logger.info(f"Таблицю постів створено успішно в базі даних {database_name}")
     return conn
 
 # Функція для парсингу HTML сторінки з дописами
@@ -223,11 +258,28 @@ def parse_reels():
         return []
 
 # Функція для збереження даних у базу
-def save_to_db(items, conn):
-    """Зберігає дані у базу"""
+def save_to_db(items, conn=None, account_username="default"):
+    """Зберігає дані у базу
+    
+    Args:
+        items (list): Список постів для збереження
+        conn (sqlite3.Connection, optional): З'єднання з базою даних. Defaults to None.
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+        
+    Returns:
+        tuple: Кількість доданих та пропущених записів
+    """
     if not items:
         logger.warning("Немає даних для збереження в базу")
         return 0, 0
+    
+    # Отримуємо конфігурацію акаунту
+    account_config = get_account_config(account_username)
+    database_name = account_config["database"]
+    
+    # Якщо з'єднання не передано, створюємо нове
+    if conn is None:
+        conn = init_db(database_name)
     
     cursor = conn.cursor()
     added_count = 0
@@ -257,26 +309,27 @@ def save_to_db(items, conn):
                 # Спробуємо завантажити зображення для існуючого запису, якщо воно ще не завантажено
                 post_id = existing_post[0]
                 cursor.execute("SELECT local_path FROM posts WHERE id = ?", (post_id,))
-                local_path = cursor.fetchone()[0]
+                local_path_result = cursor.fetchone()
+                local_path = local_path_result[0] if local_path_result and local_path_result[0] else None
                 
                 if not local_path or not os.path.exists(local_path):
                     logger.info(f"Завантажуємо зображення для існуючого запису ID: {post_id}")
-                    local_path = download_and_save_image(media_url, post_type, post_id)
+                    local_path = download_and_save_image(media_url, post_type, post_id, account_username)
                     if local_path:
-                        cursor.execute("UPDATE posts SET local_path = ? WHERE id = ?", (local_path, post_id))
+                        cursor.execute("UPDATE posts SET local_path = ?, account = ? WHERE id = ?", (local_path, account_username, post_id))
                         conn.commit()
                         logger.info(f"Оновлено локальний шлях для запису ID: {post_id}")
                 
                 continue
             
             # Завантажуємо зображення
-            local_path = download_and_save_image(media_url, post_type)
+            local_path = download_and_save_image(media_url, post_type, None, account_username)
             
             # Додаємо запис у базу даних
             cursor.execute('''
-            INSERT INTO posts (post_type, media_url, description, timestamp, username, is_video, parsed_date, local_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (post_type, media_url, description, timestamp, username, is_video, parsed_date, local_path))
+            INSERT INTO posts (post_type, media_url, description, timestamp, username, is_video, parsed_date, local_path, account)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (post_type, media_url, description, timestamp, username, is_video, parsed_date, local_path, account_username))
             
             added_count += 1
             
@@ -284,26 +337,45 @@ def save_to_db(items, conn):
             logger.error(f"Помилка при збереженні в базу: {str(e)}")
     
     conn.commit()
-    logger.info(f"Збережено {added_count} нових елементів у базу даних, пропущено {skipped_count} дублікатів")
+    logger.info(f"Збережено {added_count} нових елементів у базу даних {database_name}, пропущено {skipped_count} дублікатів")
     return added_count, skipped_count
 
 # Функція для виведення статистики
-def print_stats(conn):
+def print_stats(conn, account_username="default"):
+    """Виводить статистику бази даних
+    
+    Args:
+        conn (sqlite3.Connection): З'єднання з базою даних
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+    """
     cursor = conn.cursor()
     
-    cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post'")
+    # Отримуємо конфігурацію акаунту
+    account_config = get_account_config(account_username)
+    
+    # Статистика для конкретного акаунту
+    cursor.execute("SELECT COUNT(*) FROM posts WHERE account = ?", (account_username,))
+    account_total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post' AND account = ?", (account_username,))
     post_count = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel'")
+    cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel' AND account = ?", (account_username,))
     reel_count = cursor.fetchone()[0]
     
+    cursor.execute("SELECT COUNT(*) FROM posts WHERE local_path IS NOT NULL AND local_path != '' AND account = ?", (account_username,))
+    local_images_count = cursor.fetchone()[0]
+    
+    # Загальна статистика
     cursor.execute("SELECT COUNT(*) FROM posts")
     total_count = cursor.fetchone()[0]
     
-    logger.info("=== Статистика бази даних ===")
-    logger.info(f"Всього записів: {total_count}")
+    logger.info(f"=== Статистика бази даних для акаунту {account_username} ===")
+    logger.info(f"Всього записів для акаунту: {account_total}")
     logger.info(f"Дописів: {post_count}")
     logger.info(f"Reels: {reel_count}")
+    logger.info(f"Локальних зображень: {local_images_count}")
+    logger.info(f"Всього записів в базі: {total_count}")
     logger.info("===========================")
 
 # Функція для видалення HTML файлів
@@ -318,11 +390,23 @@ def remove_html_file(file_path):
         logger.error(f"Помилка при видаленні файлу {file_path}: {str(e)}")
 
 # Головна функція
-def main_parser():
-    logger.info("Починаємо роботу парсера...")
+def main_parser(account_username="default"):
+    """Головна функція парсера
+    
+    Args:
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+        
+    Returns:
+        tuple: Кількість доданих та пропущених записів
+    """
+    logger.info(f"Починаємо роботу парсера для акаунту {account_username}...")
+    
+    # Отримуємо конфігурацію акаунту
+    account_config = get_account_config(account_username)
+    database_name = account_config["database"]
     
     # Ініціалізація БД
-    conn = init_db()
+    conn = init_db(database_name)
     
     # Лічильники для відстеження дублікатів
     total_added = 0
@@ -332,7 +416,7 @@ def main_parser():
     posts_file = "instagram_posts.html"
     if os.path.exists(posts_file):
         posts = parse_posts()
-        added, skipped = save_to_db(posts, conn)
+        added, skipped = save_to_db(posts, conn, account_username)
         total_added += added
         total_skipped += skipped
         # Видаляємо HTML файл після парсингу
@@ -344,23 +428,20 @@ def main_parser():
     reels_file = "instagram_reels.html"
     if os.path.exists(reels_file):
         reels = parse_reels()
-        added, skipped = save_to_db(reels, conn)
+        added, skipped = save_to_db(reels, conn, account_username)
         total_added += added
         total_skipped += skipped
         # Видаляємо HTML файл після парсингу
         remove_html_file(reels_file)
-    else:
-        logger.warning(f"Файл {reels_file} не знайдено")
     
     # Виводимо статистику
-    print_stats(conn)
+    print_stats(conn, account_username)
     
-    # Закриваємо з'єднання з БД
+    # Закриваємо з'єднання з базою даних
     conn.close()
-    logger.info(f"Парсинг завершено. Додано: {total_added}, пропущено дублікатів: {total_skipped}")
     
-    # Повертаємо кількість пропущених дублікатів
-    return total_skipped
+    logger.info(f"Парсер завершив роботу для акаунту {account_username}. Додано: {total_added}, пропущено дублікатів: {total_skipped}")
+    return total_added, total_skipped  # Повертаємо кількість пропущених дублікатів
 
 # Запускаємо парсер, якщо скрипт запущений напряму
 if __name__ == "__main__":

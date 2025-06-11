@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from selen import get_page_with_pagination
 from parser import main_parser, init_db, print_stats
 from func.f_auch import init_selenium, login_to_instagram, save_page
+from accounts_config import get_account_config, get_all_accounts
 
 # Завантажуємо змінні середовища
 load_dotenv()
@@ -54,52 +55,74 @@ scraping_status = {
     "duplicates_skipped": 0
 }
 
-def get_db_connection():
-    """Створює з'єднання з базою даних"""
-    conn = sqlite3.connect(app.config["DB_PATH"])
+def get_db_connection(account_username="default"):
+    """Створює з'єднання з базою даних
+    
+    Args:
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+        
+    Returns:
+        sqlite3.Connection: З'єднання з базою даних
+    """
+    # Отримуємо конфігурацію акаунту
+    account_config = get_account_config(account_username)
+    database_name = account_config["database"]
+    
+    conn = sqlite3.connect(database_name)
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_stats():
-    """Отримує статистику з бази даних"""
+def get_stats(account_username="default"):
+    """Отримує статистику з бази даних
+    
+    Args:
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+        
+    Returns:
+        dict: Статистика постів
+    """
     try:
-        conn = get_db_connection()
+        conn = get_db_connection(account_username)
         cursor = conn.cursor()
         
         stats = {}
+        stats["account"] = account_username
         
         # Перевіряємо, чи існує таблиця posts
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'")
         if not cursor.fetchone():
-            logger.warning("Таблиця posts не існує. База даних порожня.")
-            return {"total_posts": 0, "regular_posts": 0, "reels": 0, "local_images": 0, "last_update": ""}
+            logger.warning(f"Таблиця posts не існує для акаунту {account_username}. База даних порожня.")
+            return {"account": account_username, "total_posts": 0, "regular_posts": 0, "reels": 0, "local_images": 0, "last_update": ""}
         
-        # Загальна кількість постів
-        cursor.execute("SELECT COUNT(*) FROM posts")
+        # Загальна кількість постів для акаунту
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE account = ?", (account_username,))
         stats["total_posts"] = cursor.fetchone()[0]
         
-        # Кількість звичайних постів
-        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post'")
+        # Кількість звичайних постів для акаунту
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post' AND account = ?", (account_username,))
         stats["regular_posts"] = cursor.fetchone()[0]
         
-        # Кількість reels
-        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel'")
+        # Кількість reels для акаунту
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel' AND account = ?", (account_username,))
         stats["reels"] = cursor.fetchone()[0]
         
-        # Кількість локальних зображень
-        cursor.execute("SELECT COUNT(*) FROM posts WHERE local_path IS NOT NULL AND local_path != ''")
+        # Кількість локальних зображень для акаунту
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE local_path IS NOT NULL AND local_path != '' AND account = ?", (account_username,))
         stats["local_images"] = cursor.fetchone()[0]
         
-        # Останнє оновлення
-        cursor.execute("SELECT MAX(parsed_date) FROM posts")
+        # Останнє оновлення для акаунту
+        cursor.execute("SELECT MAX(parsed_date) FROM posts WHERE account = ?", (account_username,))
         last_update = cursor.fetchone()[0]
         stats["last_update"] = last_update if last_update else ""
+        
+        # Отримуємо список всіх доступних акаунтів
+        stats["available_accounts"] = get_all_accounts()
         
         conn.close()
         return stats
     except Exception as e:
-        logger.error(f"Помилка при отриманні статистики: {str(e)}")
-        return {"total_posts": 0, "regular_posts": 0, "reels": 0, "local_images": 0, "last_update": ""}
+        logger.error(f"Помилка при отриманні статистики для акаунту {account_username}: {str(e)}")
+        return {"account": account_username, "total_posts": 0, "regular_posts": 0, "reels": 0, "local_images": 0, "last_update": "", "available_accounts": get_all_accounts()}
 
 
 def run_scraper():
@@ -153,7 +176,8 @@ def run_scraper():
 @app.route('/')
 def index():
     """Головна сторінка"""
-    stats = get_stats()
+    account = request.args.get('account', 'default')
+    stats = get_stats(account)
     return render_template('index.html', stats=stats, status=scraping_status)
 
 @app.route('/start_scraping', methods=['POST'])
@@ -204,27 +228,41 @@ def posts():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     post_type = request.args.get('type', 'all')
+    account = request.args.get('account', 'default')
     
-    conn = get_db_connection()
+    conn = get_db_connection(account)
     cursor = conn.cursor()
     
-    # Формуємо SQL запит залежно від типу постів
+    # Отримуємо список всіх доступних акаунтів
+    available_accounts = get_all_accounts()
+    
+    # Перевіряємо, чи існує таблиця posts
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'")
+    if not cursor.fetchone():
+        logger.warning(f"Таблиця posts не існує для акаунту {account}. База даних порожня.")
+        return render_template('posts.html', posts=[], page=page, per_page=per_page, 
+                           total_posts=0, post_type=post_type, account=account, 
+                           available_accounts=available_accounts)
+    
+    # Формуємо SQL запит залежно від типу постів та акаунту
     if post_type == 'post':
-        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post'")
-        query = "SELECT * FROM posts WHERE post_type = 'post' ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'post' AND account = ?", (account,))
+        query = "SELECT * FROM posts WHERE post_type = 'post' AND account = ? ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        params = (account, per_page, offset)
     elif post_type == 'reel':
-        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel'")
-        query = "SELECT * FROM posts WHERE post_type = 'reel' ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE post_type = 'reel' AND account = ?", (account,))
+        query = "SELECT * FROM posts WHERE post_type = 'reel' AND account = ? ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        params = (account, per_page, offset)
     else:
-        cursor.execute("SELECT COUNT(*) FROM posts")
-        query = "SELECT * FROM posts ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        cursor.execute("SELECT COUNT(*) FROM posts WHERE account = ?", (account,))
+        query = "SELECT * FROM posts WHERE account = ? ORDER BY parsed_date DESC LIMIT ? OFFSET ?"
+        params = (account, per_page, offset)
     
     # Загальна кількість постів
     total_posts = cursor.fetchone()[0]
     
     # Пагінація
-    offset = (page - 1) * per_page
-    cursor.execute(query, (per_page, offset))
+    cursor.execute(query, params)
     posts = cursor.fetchall()
     
     # Діагностика: виводимо інформацію про пости
@@ -246,7 +284,9 @@ def posts():
         total_pages=total_pages, 
         per_page=per_page,
         post_type=post_type,
-        total_posts=total_posts
+        total_posts=total_posts,
+        account=account,
+        available_accounts=available_accounts
     )
 
 @app.route('/settings', methods=['GET', 'POST'])
