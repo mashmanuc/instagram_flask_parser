@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Пости - Instagram Scraper{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="bi bi-grid-3x3 me-2"></i>Пости</h5>
+        <div class="btn-group">
+            <a href="{{ url_for('posts', type='all') }}" class="btn btn-sm {% if post_type == 'all' %}btn-light{% else %}btn-outline-light{% endif %}">Всі</a>
+            <a href="{{ url_for('posts', type='post') }}" class="btn btn-sm {% if post_type == 'post' %}btn-light{% else %}btn-outline-light{% endif %}">Пости</a>
+            <a href="{{ url_for('posts', type='reel') }}" class="btn btn-sm {% if post_type == 'reel' %}btn-light{% else %}btn-outline-light{% endif %}">Reels</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <p>Показано {{ posts|length }} з {{ total_posts }} постів</p>
+        </div>
+        
+        {% if posts %}
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for post in posts %}
+            <div class="col">
+                <div class="card h-100">
+                    <div class="card-header {% if post.post_type == 'post' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{{ post.post_type|capitalize }}</span>
+                            <span class="badge bg-light text-dark">ID: {{ post.id }}</span>
+                        </div>
+                    </div>
+                    <div class="position-relative">
+                        {% if post.local_path %}
+                        <!-- Використовуємо локальне зображення, якщо воно доступне -->
+                        <img src="/{{ post.local_path }}" class="card-img-top" alt="{{ post.description|truncate(30) }}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'225\' viewBox=\'0 0 400 225\'><rect width=\'400\' height=\'225\' fill=\'#f8f9fa\' /><text x=\'50%\' y=\'50%\' font-family=\'Arial\' font-size=\'18\' text-anchor=\'middle\' fill=\'#6c757d\'>Немає зображення</text><text x=\'50%\' y=\'65%\' font-family=\'Arial\' font-size=\'14\' text-anchor=\'middle\' fill=\'#6c757d\'>Джерело недоступне</text></svg>');">
+                        {% else %}
+                        <!-- Використовуємо оригінальний URL, якщо локальне зображення недоступне -->
+                        <img src="{{ post.media_url }}" class="card-img-top" alt="{{ post.description|truncate(30) }}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100%\' height=\'225\' viewBox=\'0 0 400 225\'><rect width=\'400\' height=\'225\' fill=\'#f8f9fa\' /><text x=\'50%\' y=\'50%\' font-family=\'Arial\' font-size=\'18\' text-anchor=\'middle\' fill=\'#6c757d\'>Немає зображення</text><text x=\'50%\' y=\'65%\' font-family=\'Arial\' font-size=\'14\' text-anchor=\'middle\' fill=\'#6c757d\'>Джерело недоступне</text></svg>');">
+                        {% endif %}
+                        {% if post.is_video %}
+                        <span class="position-absolute top-0 end-0 badge bg-danger m-2">
+                            <i class="bi bi-play-fill"></i> Відео
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title">{{ post.username or 'Невідомий користувач' }}</h6>
+                        <p class="card-text">{{ post.description|truncate(100) }}</p>
+                    </div>
+                    <div class="card-footer text-muted">
+                        <small>Додано: {{ post.parsed_date }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Пагінація -->
+        {% if total_pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('posts', page=page-1, type=post_type) }}" aria-label="Попередня">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+                    {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+                    <li class="page-item"><a class="page-link" href="{{ url_for('posts', page=p, type=post_type) }}">{{ p }}</a></li>
+                    {% elif p == 4 and page > 5 or p == total_pages - 3 and page < total_pages - 4 %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('posts', page=page+1, type=post_type) }}" aria-label="Наступна">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Немає постів для відображення
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

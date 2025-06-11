@@ -24,15 +24,26 @@ def init_selenium():
     Ініціалізує драйвер Selenium
     """
     options = Options()
-    HEADLESS = False  # Або використовуйте змінну середовища: os.getenv('HEADLESS', 'False').lower() == 'true'
+    
+    # Отримуємо налаштування з .env файлу
+    HEADLESS = os.getenv('HEADLESS', 'False').lower() == 'true'
+    
     if HEADLESS:
+        logger.info("Запуск в фоновому режимі (headless)")
         options.add_argument("--headless")
+    else:
+        logger.info("Запуск в графічному режимі (з відображенням браузера)")
+    
+    # Додаємо необхідні опції
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    logger.info("Ініціалізація драйвера Chrome...")
     driver = webdriver.Chrome(options=options)
+    logger.info("Драйвер Chrome успішно ініціалізовано")
     return driver
 
 
@@ -47,7 +58,8 @@ def login_to_instagram(driver):
             logger.error("Не знайдено облікові дані Instagram в .env файлі")
             return False
             
-        logger.info(f"Спроба входу з логіном: {username}")
+        logger.info(f"Спроба входу в Instagram з логіном: {username[:3]}{'*' * (len(username) - 5)}{username[-2:]}")
+        logger.info("Пароль знайдено в налаштуваннях")
         
         # Переходимо на сторінку входу Instagram
         logger.info("Переходимо на сторінку входу Instagram...")

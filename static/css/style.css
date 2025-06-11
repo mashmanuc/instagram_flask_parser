@@ -1,0 +1,133 @@
+/* Основні стилі для Instagram Scraper */
+
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.footer {
+    margin-top: auto;
+}
+
+/* Стилі для карток */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    border-bottom: none;
+    padding: 0.75rem 1.25rem;
+}
+
+.card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+/* Стилі для постів */
+.post-card {
+    transition: transform 0.3s;
+}
+
+.post-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Стилі для кнопок */
+.btn {
+    border-radius: 0.25rem;
+}
+
+/* Стилі для пагінації */
+.pagination .page-link {
+    color: #0d6efd;
+    border-radius: 0.25rem;
+    margin: 0 0.125rem;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Стилі для сповіщень */
+.alert {
+    border-radius: 0.5rem;
+}
+
+/* Стилі для форм */
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Стилі для прогрес-бару */
+.progress {
+    height: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+/* Стилі для таблиць */
+.table {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+/* Адаптивні стилі */
+@media (max-width: 768px) {
+    .card-img-top {
+        height: 150px;
+    }
+}
+
+/* Анімації */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s;
+}
+
+/* Стилі для кнопок експорту */
+.export-btn {
+    transition: all 0.3s;
+}
+
+.export-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Стилі для коду */
+pre {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    font-size: 0.875rem;
+}
+
+code {
+    color: #d63384;
+}
+
+/* Стилі для плейсхолдера зображення */
+.placeholder-img {
+    background-color: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 1.5rem;
+}

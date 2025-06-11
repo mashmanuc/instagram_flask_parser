@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Експорт даних - Instagram Scraper{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0"><i class="bi bi-download me-2"></i>Експорт даних</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="card-title mb-0">Експорт у JSON</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>Експорт всіх даних у форматі JSON. Цей формат ідеально підходить для інтеграції з іншими системами та аналізу даних.</p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('export_json') }}" class="btn btn-success">
+                                <i class="bi bi-file-earmark-code me-1"></i>Завантажити JSON
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="card-title mb-0">Експорт у CSV</h6>
+                    </div>
+                    <div class="card-body">
+                        <p>Експорт всіх даних у форматі CSV. Цей формат підходить для відкриття в Excel та інших табличних редакторах.</p>
+                        <div class="d-grid">
+                            <a href="{{ url_for('export_csv') }}" class="btn btn-info">
+                                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Завантажити CSV
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="card-title mb-0">Інтеграція з іншими системами</h6>
+            </div>
+            <div class="card-body">
+                <p>Для інтеграції з іншими системами ви можете використовувати наступний код:</p>
+                
+                <div class="mb-3">
+                    <h6>Python:</h6>
+                    <pre class="bg-light p-3 rounded"><code>import requests
+import json
+
+# Завантаження JSON даних
+response = requests.get('http://your-server:5000/export/json')
+data = response.json()
+
+# Обробка даних
+for post in data:
+    print(f"Тип: {post['post_type']}, URL: {post['media_url']}")
+</code></pre>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>JavaScript:</h6>
+                    <pre class="bg-light p-3 rounded"><code>fetch('http://your-server:5000/export/json')
+  .then(response => response.json())
+  .then(data => {
+    // Обробка даних
+    data.forEach(post => {
+      console.log(`Тип: ${post.post_type}, URL: ${post.media_url}`);
+    });
+  });</code></pre>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>Для автоматизації експорту даних ви можете використовувати скрипт <code>bot_integration.py</code>, який дозволяє налаштувати регулярне оновлення та відправку даних на ваш сайт.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
