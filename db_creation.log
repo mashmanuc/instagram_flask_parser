@@ -1,0 +1,7 @@
+2025-06-12 19:58:05,441 - __main__ - INFO - Початок створення баз даних...
+2025-06-12 19:58:05,441 - __main__ - INFO - Перевірка бази даних для акаунту club_okinawa_karate: E:\project\instagram\instagram_okinawa.db
+2025-06-12 19:58:05,442 - __main__ - INFO - База даних E:\project\instagram\instagram_okinawa.db не існує, створюємо...
+2025-06-12 19:58:05,521 - __main__ - INFO - Базу даних E:\project\instagram\instagram_okinawa.db для акаунту club_okinawa_karate успішно створено
+2025-06-12 19:58:05,522 - __main__ - INFO - Перевірка бази даних для акаунту default: E:\project\instagram\instagram_data.db
+2025-06-12 19:58:05,533 - __main__ - INFO - База даних E:\project\instagram\instagram_data.db вже існує
+2025-06-12 19:58:05,533 - __main__ - INFO - Перевірку всіх баз даних завершено

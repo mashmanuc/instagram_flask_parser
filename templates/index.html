@@ -24,9 +24,31 @@
                             </button>
                         {% else %}
                             <form action="{{ url_for('start_scraping') }}" method="post" class="d-inline">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-play-fill me-1"></i>Запустити скрапінг
+                                {% if show_warning %}
+                                <div class="alert alert-warning mb-3">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <strong>Увага!</strong> Щоб почати скрапінг, спочатку встановіть URL акаунту в <a href="/settings" class="alert-link">налаштуваннях</a>.
+                                </div>
+                                <button type="button" class="btn btn-primary" disabled>
+                                    <i class="bi bi-play-fill me-1"></i>Спочатку встановіть URL
                                 </button>
+                                {% else %}
+                                <div class="alert alert-info mb-2">
+                                    <i class="bi bi-info-circle-fill me-2"></i>
+                                    <strong>Важливо:</strong> Скрапінг буде виконуватись за URL: <strong>{{ url_dopys }}</strong>
+                                </div>
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">Зберегти в базу:</span>
+                                    <select name="account" class="form-select">
+                                        {% for account in stats.available_accounts %}
+                                            <option value="{{ account.username }}" {% if account.username == stats.account %}selected{% endif %}>{{ account.display_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-play-fill me-1"></i>Запустити скрапінг
+                                    </button>
+                                </div>
+                                {% endif %}
                             </form>
                         {% endif %}
                     </div>
@@ -79,12 +101,17 @@
 
     <div class="col-md-4">
         <div class="card mb-4">
-            <div class="card-header bg-info text-white">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0"><i class="bi bi-graph-up me-2"></i>Статистика</h5>
+                <select id="account-selector" class="form-select form-select-sm" style="width: auto;" onchange="changeAccount(this.value)">
+                    {% for account in stats.available_accounts %}
+                        <option value="{{ account.username }}" {% if account.username == stats.account %}selected{% endif %}>{{ account.display_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="card-body">
                 <div class="mb-3">
-                    <h6 class="card-subtitle text-muted mb-2">Загальна інформація</h6>
+                    <h6 class="card-subtitle text-muted mb-2">Загальна інформація для акаунту <strong>{{ stats.account }}</strong></h6>
                     <p class="mb-1"><strong>Всього постів:</strong> <span class="badge bg-primary">{{ stats.total_posts }}</span></p>
                     <p class="mb-1"><strong>Звичайні пости:</strong> <span class="badge bg-success">{{ stats.regular_posts }}</span></p>
                     <p class="mb-1"><strong>Reels:</strong> <span class="badge bg-danger">{{ stats.reels }}</span></p>
@@ -122,6 +149,11 @@
 
 {% block extra_js %}
 <script>
+function changeAccount(account) {
+    // Перенаправляємо на головну сторінку для вибраного акаунту
+    window.location.href = "{{ url_for('index') }}?account=" + account;
+}
+
     // Оновлення статусу кожні 3 секунди
     {% if status.is_running %}
     const statusInterval = setInterval(function() {

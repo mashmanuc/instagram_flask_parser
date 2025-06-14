@@ -11,17 +11,18 @@ import sqlite3
 import threading
 import logging
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 # Імпортуємо функції з наших модулів
 from selen import get_page_with_pagination
-from parser import main_parser, init_db, print_stats
-from func.f_auch import init_selenium, login_to_instagram, save_page
+from parser import main_parser, init_db
 from accounts_config import get_account_config, get_all_accounts
+from url_manager import get_urls, set_urls
 
-# Завантажуємо змінні середовища
+# Завантажуємо змінні оточення
 load_dotenv()
 
 # Налаштування Flask
@@ -29,6 +30,17 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "instagram_scraper_secret")
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["DB_PATH"] = os.getenv("DB_PATH", "instagram_data.db")
+
+# Шаблонний фільтр для відображення акаунтів
+@app.template_filter('display_account')
+def display_account(account):
+    """Відображає акаунт у читабельному форматі"""
+    if isinstance(account, dict) and 'display_name' in account:
+        return account['display_name']
+    elif isinstance(account, dict) and 'username' in account:
+        return account['username']
+    else:
+        return str(account)
 
 # Створюємо директорію для завантажень, якщо вона не існує
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
@@ -57,6 +69,7 @@ scraping_status = {
 
 def get_db_connection(account_username="default"):
     """Створює з'єднання з базою даних
+    Якщо база даних не існує, вона буде створена автоматично.
     
     Args:
         account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
@@ -68,8 +81,40 @@ def get_db_connection(account_username="default"):
     account_config = get_account_config(account_username)
     database_name = account_config["database"]
     
+    # Перевіряємо, чи існує директорія для зображень
+    images_folder = account_config["images_folder"]
+    img_dir = Path(f"static/img/{images_folder}")
+    img_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Перевірено директорію для зображень акаунту {account_username}: {img_dir}")
+    
+    # Створюємо з'єднання з базою даних
     conn = sqlite3.connect(database_name)
     conn.row_factory = sqlite3.Row
+    
+    # Перевіряємо, чи існує таблиця posts
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='posts'")
+    if not cursor.fetchone():
+        logger.info(f"Створюємо таблицю posts для акаунту {account_username} в базі {database_name}")
+        
+        # Створюємо таблицю для постів
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_type TEXT,
+            media_url TEXT,
+            description TEXT,
+            timestamp TEXT,
+            username TEXT,
+            is_video INTEGER,
+            parsed_date TEXT,
+            local_path TEXT,
+            account TEXT
+        )
+        ''')
+        conn.commit()
+        logger.info(f"Таблицю posts створено успішно в базі {database_name}")
+    
     return conn
 
 def get_stats(account_username="default"):
@@ -125,49 +170,57 @@ def get_stats(account_username="default"):
         return {"account": account_username, "total_posts": 0, "regular_posts": 0, "reels": 0, "local_images": 0, "last_update": "", "available_accounts": get_all_accounts()}
 
 
-def run_scraper():
-    """Запускає процес скрапінгу в окремому потоці"""
+def run_scraper(account_username="default"):
+    """Запускає процес скрапінгу в окремому потоці
+    
+    Args:
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+    """
     global scraping_status
     
     try:
+        # Отримуємо конфігурацію акаунту
+        account_config = get_account_config(account_username)
+        database_name = account_config["database"]
+        
         scraping_status["is_running"] = True
         scraping_status["start_time"] = datetime.now()
         scraping_status["status"] = "running"
-        scraping_status["message"] = "Запуск скрапінгу..."
+        scraping_status["message"] = f"Запуск скрапінгу для акаунту {account_username}..."
         scraping_status["progress"] = 10
         scraping_status["duplicates_skipped"] = 0
+        scraping_status["account"] = account_username
         
         # Запускаємо скрапінг
-        logger.info("Запуск скрапінгу Instagram...")
-        scraping_status["message"] = "Скрапінг Instagram..."
+        logger.info(f"Запуск скрапінгу Instagram для акаунту {account_username}...")
+        scraping_status["message"] = f"Скрапінг Instagram для акаунту {account_username}..."
         scraping_status["progress"] = 30
-        get_page_with_pagination()
+        get_page_with_pagination(account_username)
         
         # Запускаємо парсинг
-        logger.info("Запуск парсингу HTML...")
-        scraping_status["message"] = "Парсинг HTML..."
+        logger.info(f"Запуск парсингу HTML для акаунту {account_username}...")
+        scraping_status["message"] = f"Парсинг HTML для акаунту {account_username}..."
         scraping_status["progress"] = 60
         
-        # Модифікуємо парсер для відстеження дублікатів
-        conn = sqlite3.connect(app.config["DB_PATH"])
-        skipped_count = main_parser()
+        # Запускаємо парсер для конкретного акаунту
+        added_count, skipped_count = main_parser(account_username)
         
         # Оновлюємо статус з інформацією про дублікати
-        if isinstance(skipped_count, int):
-            scraping_status["duplicates_skipped"] = skipped_count
-            logger.info(f"Пропущено {skipped_count} дублікатів контенту")
+        scraping_status["duplicates_skipped"] = skipped_count
+        scraping_status["added_count"] = added_count
+        logger.info(f"Додано {added_count} нових записів, пропущено {skipped_count} дублікатів контенту")
         
         # Завершуємо процес
         scraping_status["status"] = "completed"
-        scraping_status["message"] = f"Скрапінг та парсинг успішно завершено. Пропущено {scraping_status['duplicates_skipped']} дублікатів."
+        scraping_status["message"] = f"Скрапінг та парсинг для акаунту {account_username} успішно завершено. Додано: {added_count}, пропущено: {skipped_count} дублікатів."
         scraping_status["progress"] = 100
         scraping_status["end_time"] = datetime.now()
-        logger.info("Процес скрапінгу та парсингу завершено успішно")
+        logger.info(f"Процес скрапінгу та парсингу для акаунту {account_username} завершено успішно")
         
     except Exception as e:
-        logger.error(f"Помилка при скрапінгу: {e}")
+        logger.error(f"Помилка при скрапінгу для акаунту {account_username}: {e}")
         scraping_status["status"] = "error"
-        scraping_status["message"] = f"Помилка: {str(e)}"
+        scraping_status["message"] = f"Помилка для акаунту {account_username}: {str(e)}"
         scraping_status["progress"] = 0
     
     finally:
@@ -178,7 +231,15 @@ def index():
     """Головна сторінка"""
     account = request.args.get('account', 'default')
     stats = get_stats(account)
-    return render_template('index.html', stats=stats, status=scraping_status)
+    
+    # Отримуємо URL з JSON файлу
+    url_dopys, url_reels = get_urls()
+    
+    # Якщо URL немає, показуємо попередження
+    show_warning = not url_dopys
+    
+    return render_template('index.html', stats=stats, status=scraping_status, 
+                          url_dopys=url_dopys, url_reels=url_reels, show_warning=show_warning)
 
 @app.route('/start_scraping', methods=['POST'])
 def start_scraping():
@@ -189,13 +250,16 @@ def start_scraping():
         flash("Процес скрапінгу вже запущено!", "warning")
         return redirect(url_for('index'))
     
+    # Отримуємо акаунт з форми
+    account = request.form.get('account', 'default')
+    
     # Запускаємо скрапінг у окремому потоці
-    thread = threading.Thread(target=run_scraper)
+    thread = threading.Thread(target=run_scraper, args=(account,))
     thread.daemon = True
     thread.start()
     
-    flash("Процес скрапінгу запущено!", "success")
-    return redirect(url_for('index'))
+    flash(f"Процес скрапінгу для акаунту {account} запущено!", "success")
+    return redirect(url_for('index', account=account))
 
 @app.route('/status')
 def status():
@@ -209,7 +273,7 @@ def get_logs():
         # Читаємо останні 50 рядків з лог-файлу
         log_file = "flask_app.log"
         if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, 'r', encoding='latin-1') as f:
                 logs = f.readlines()
                 # Залишаємо тільки останні 50 рядків
                 logs = logs[-50:] if len(logs) > 50 else logs
@@ -229,6 +293,9 @@ def posts():
     per_page = request.args.get('per_page', 10, type=int)
     post_type = request.args.get('type', 'all')
     account = request.args.get('account', 'default')
+    
+    # Обчислюємо зміщення для пагінації
+    offset = (page - 1) * per_page
     
     conn = get_db_connection(account)
     cursor = conn.cursor()
@@ -300,7 +367,10 @@ def settings():
         url_reels = request.form.get('url_reels')
         headless = request.form.get('headless') == 'on'
         
-        # Оновлюємо .env файл
+        # Зберігаємо URL в JSON файл
+        set_urls(url_dopys, url_reels)
+        
+        # Оновлюємо .env файл для інших налаштувань
         with open('.env', 'r', encoding='utf-8') as f:
             lines = f.readlines()
         
@@ -308,8 +378,6 @@ def settings():
         updated = {
             'INSTAGRAM_USERNAME': False,
             'INSTAGRAM_PASSWORD': False,
-            'URL_DOPYS': False,
-            'URL_REELS': False,
             'HEADLESS': False
         }
         
@@ -320,15 +388,12 @@ def settings():
             elif line.startswith('INSTAGRAM_PASSWORD='):
                 new_lines.append(f'INSTAGRAM_PASSWORD={instagram_password}\n')
                 updated['INSTAGRAM_PASSWORD'] = True
-            elif line.startswith('URL_DOPYS='):
-                new_lines.append(f'URL_DOPYS={url_dopys}\n')
-                updated['URL_DOPYS'] = True
-            elif line.startswith('URL_REELS='):
-                new_lines.append(f'URL_REELS={url_reels}\n')
-                updated['URL_REELS'] = True
             elif line.startswith('HEADLESS='):
                 new_lines.append(f'HEADLESS={"True" if headless else "False"}\n')
                 updated['HEADLESS'] = True
+            # Ігноруємо URL в .env, тепер вони в JSON файлі
+            elif line.startswith('URL_DOPYS=') or line.startswith('URL_REELS='):
+                new_lines.append(line)  # Залишаємо старі значення в .env
             else:
                 new_lines.append(line)
         
@@ -341,10 +406,6 @@ def settings():
                     new_lines.append(f'{key}={instagram_username}\n')
                 elif key == 'INSTAGRAM_PASSWORD':
                     new_lines.append(f'{key}={instagram_password}\n')
-                elif key == 'URL_DOPYS':
-                    new_lines.append(f'{key}={url_dopys}\n')
-                elif key == 'URL_REELS':
-                    new_lines.append(f'{key}={url_reels}\n')
         
         # Записуємо оновлений .env файл
         with open('.env', 'w', encoding='utf-8') as f:
@@ -356,9 +417,10 @@ def settings():
     # Отримуємо поточні налаштування
     instagram_username = os.getenv('INSTAGRAM_USERNAME', '')
     instagram_password = os.getenv('INSTAGRAM_PASSWORD', '')
-    url_dopys = os.getenv('URL_DOPYS', '')
-    url_reels = os.getenv('URL_REELS', '')
     headless = os.getenv('HEADLESS', 'False').lower() == 'true'
+    
+    # Отримуємо URL з JSON файлу
+    url_dopys, url_reels = get_urls()
     
     return render_template(
         'settings.html',

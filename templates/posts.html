@@ -5,11 +5,20 @@
 {% block content %}
 <div class="card">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h5 class="card-title mb-0"><i class="bi bi-grid-3x3 me-2"></i>Пости</h5>
-        <div class="btn-group">
-            <a href="{{ url_for('posts', type='all') }}" class="btn btn-sm {% if post_type == 'all' %}btn-light{% else %}btn-outline-light{% endif %}">Всі</a>
-            <a href="{{ url_for('posts', type='post') }}" class="btn btn-sm {% if post_type == 'post' %}btn-light{% else %}btn-outline-light{% endif %}">Пости</a>
-            <a href="{{ url_for('posts', type='reel') }}" class="btn btn-sm {% if post_type == 'reel' %}btn-light{% else %}btn-outline-light{% endif %}">Reels</a>
+        <h5 class="card-title mb-0"><i class="bi bi-grid-3x3 me-2"></i>Пости - {{ account }}</h5>
+        <div class="d-flex">
+            <div class="me-3">
+                <select id="account-selector" class="form-select form-select-sm" onchange="changeAccount(this.value)">
+                    {% for acc in available_accounts %}
+                        <option value="{{ acc }}" {% if acc == account %}selected{% endif %}>{{ acc }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="btn-group">
+                <a href="{{ url_for('posts', type='all', account=account) }}" class="btn btn-sm {% if post_type == 'all' %}btn-light{% else %}btn-outline-light{% endif %}">Всі</a>
+                <a href="{{ url_for('posts', type='post', account=account) }}" class="btn btn-sm {% if post_type == 'post' %}btn-light{% else %}btn-outline-light{% endif %}">Пости</a>
+                <a href="{{ url_for('posts', type='reel', account=account) }}" class="btn btn-sm {% if post_type == 'reel' %}btn-light{% else %}btn-outline-light{% endif %}">Reels</a>
+            </div>
         </div>
     </div>
     <div class="card-body">
@@ -90,4 +99,13 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeAccount(account) {
+    // Перенаправляємо на сторінку з постами для вибраного акаунту
+    window.location.href = "{{ url_for('posts') }}?account=" + account + "&type={{ post_type }}";
+}
+</script>
 {% endblock %}

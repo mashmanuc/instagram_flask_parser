@@ -11,14 +11,27 @@ AVAILABLE_ACCOUNTS = [
         "username": "club_okinawa_karate",  # Ім'я користувача в Instagram
         "display_name": "Клуб Окінава Карате",  # Назва для відображення
         "database": "instagram_okinawa.db",  # Назва файлу бази даних
-        "images_folder": "okinawa"  # Назва папки для зображень в static/img/
+        "images_folder": "okinawa",  # Назва папки для зображень в static/img/
+        "url_posts": "https://www.instagram.com/club_okinawa_karate/",  # URL для скрапінгу постів
+        "url_reels": "https://www.instagram.com/club_okinawa_karate/reels/"  # URL для скрапінгу reels
+    },
+    # Додатковий акаунт
+    {
+        "username": "dliavsikhta",
+        "display_name": "Для ВсіхТа",
+        "database": "instagram_dliavsikhta.db",
+        "images_folder": "dliavsikhta",
+        "url_posts": "https://www.instagram.com/dliavsikhta/",
+        "url_reels": "https://www.instagram.com/dliavsikhta/reels/"
     },
     # Можна додати інші акаунти за потреби
     {
         "username": "default",  # Акаунт за замовчуванням
         "display_name": "Основний акаунт",
         "database": "instagram_data.db",
-        "images_folder": "instagram"
+        "images_folder": "instagram",
+        "url_posts": "",  # Буде використано URL з .env файлу
+        "url_reels": ""   # Буде використано URL з .env файлу
     }
 ]
 

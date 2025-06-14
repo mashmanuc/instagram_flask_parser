@@ -31,17 +31,41 @@ logger = logging.getLogger("InstagramBot")
 
 
 
+# Ці змінні будуть оновлені перед кожним скрапінгом
 HEADLESS = False
-URL_DOPYS = os.getenv("URL_DOPYS")
-URL_REELS = os.getenv("URL_REELS")
 
 # Ініціалізація файлу для зберігання ID надісланих оголошень
 SENT_IDS_FILE = "sent_ids.txt"
 
-def get_page_with_pagination():
-    """Отримуємо сторінку Instagram"""
+def get_page_with_pagination(account_username="default"):
+    """Отримуємо сторінку Instagram для конкретного акаунту
+    
+    Args:
+        account_username (str, optional): Ім'я акаунту Instagram. Defaults to "default".
+    """
+    from accounts_config import get_account_config
+    from url_manager import get_urls
+    
     driver = None
     try:
+        # Отримуємо конфігурацію акаунту (для імені в базі та місця зберігання зображень)
+        account_config = get_account_config(account_username)
+        
+        # Отримуємо URL з JSON файлу
+        url_dopys, url_reels = get_urls()
+        
+        # Детальне логування URL для діагностики
+        logger.info(f"[ДЕБАГ] Отримано URL з JSON: url_posts='{url_dopys}', url_reels='{url_reels}'")
+        
+        # Перевіряємо URL на коректність
+        if not url_dopys or not url_reels:
+            logger.error(f"URL не налаштовано в JSON файлі. Перевірте налаштування.")
+            return None
+        
+        # Логуємо інформацію про URL, які будемо використовувати
+        logger.info(f"Використовуємо URL з налаштувань: Posts={url_dopys}, Reels={url_reels}")
+        logger.info(f"Скрапінг виконується для акаунту: {account_username} (зберігання в базу {account_config['database']})")
+        
         # Ініціалізуємо драйвер
         driver = init_selenium()
         
@@ -53,15 +77,15 @@ def get_page_with_pagination():
             return None
             
         # Зберігаємо сторінку з дописами
-        logger.info("Зберігаємо сторінку з дописами...")
-        save_page(driver, URL_DOPYS, is_posts=True, is_reels=False)
+        logger.info(f"Зберігаємо сторінку з дописами для акаунту {account_username}...")
+        save_page(driver, url_dopys, is_posts=True, is_reels=False)
         
         # Додатковий час між завантаженнями
         time.sleep(5)
         
         # Зберігаємо сторінку з reels
-        logger.info("Зберігаємо сторінку з reels...")
-        save_page(driver, URL_REELS, is_posts=False, is_reels=True)
+        logger.info(f"Зберігаємо сторінку з reels для акаунту {account_username}...")
+        save_page(driver, url_reels, is_posts=False, is_reels=True)
         
         logger.info("Усі сторінки успішно збережено")
         
